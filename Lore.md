@@ -1,8 +1,8 @@
 # The Lore of "From On High"
   
 ## About
-    "From on High" is a game about a world broken by a huge war caused by economic class division after a benevolent alien civilization gifted humanity with their advanced technology, and humanity destroyed itself with it due to class division.\
-\ 
+> "From on High" is a game about a world broken by a huge war caused by economic class division after a benevolent alien civilization gifted humanity with their advanced technology, and humanity destroyed itself with it due to class division.
+
 There was a technological revolution on Earth when an alien civilization gifted humans with technology thousands of years more advanced than anything they had ever had before.  This technology used antimatter as a source of power and was meant as a gift from an alien species called the, “Ragoons,” whom war was alien to.  The Ragoons were a benevolent species that fought no wars, but the humans were not; the humans weaponized the alien technology and used it to fight a great war with them.\
 \
 This war was the largest war of all time that shook the Earth itself.  The humans, divided into rich and poor: those who had the technology and those who did not, made antimatter bombs with yields in the range of dozens to several hundred gigatons of tnt.  UN nations began to argue over who should get to use such weapons.  At the same time, the wealthy humans consolidated power by influencing the elections of their world leaders.\ 
