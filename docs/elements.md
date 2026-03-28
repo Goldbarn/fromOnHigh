@@ -1,13 +1,13 @@
 # Elements (tiles)
-- Light
-- Lightning
-- Fire
-- Wind
-- Creature
-- Water
-- Plant
-- Earth
-- Stone
-- Metal
-- Ice
-- Dark
+- Light: white
+- Lightning: 
+- Fire: red
+- Wind: plae pink
+- Creature: t
+- Water:bluw
+- Plant: green
+- Earth: dark brown
+- Stone: dark grey
+- Metal: light grey
+- Ice: light blue
+- Dark: black
