@@ -5,8 +5,8 @@ from controller import Controller
 
 def main():
     pygame.init()
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption("Hex Jump Prototype")
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
+    pygame.display.set_caption("From On High")
     font = pygame.font.SysFont(None, 24)
     
     view = View(screen, font)

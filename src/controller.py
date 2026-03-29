@@ -68,8 +68,10 @@ class Controller:
         self.player_stats = [{'resources': {e: 0 for e in ELEMENTS}, 'food': 5, 'wind': 1, 'research': 1, 'personality': personalities[i]} for i in range(self.num_players)]
 
     def handle_events(self):
+        screen_width = self.view.screen.get_width()
+        screen_height = self.view.screen.get_height()
         mouse_pos = pygame.mouse.get_pos()
-        hovered_hex = Hex.from_pixel(mouse_pos[0], mouse_pos[1], self.camera_x, self.camera_y)
+        hovered_hex = Hex.from_pixel(mouse_pos[0], mouse_pos[1], self.camera_x, self.camera_y, screen_width, screen_height)
         
         self.hovered_tile = None
         for t in self.grid:
@@ -129,10 +131,18 @@ class Controller:
                     
                     if not clicked_toolbar:
                         if self.selected_power and self.hovered_tile:
-                            self.hovered_tile.element = self.selected_power
-                            if self.selected_power in ["lightning", "fire", "dark"]: self.audio.play('error')
-                            elif self.selected_power in ["light", "plant", "water"]: self.audio.play('found_city')
-                            else: self.audio.play('move')
+                            # Prevent trapping units in impassable terrain
+                            units_on_tile = [u for u in self.units if u.current_hex == hovered_hex]
+                            if self.founder and self.founder.current_hex == hovered_hex:
+                                units_on_tile.append(self.founder)
+                            
+                            if self.selected_power in ["stone", "metal"] and units_on_tile:
+                                self.audio.play('error')
+                            else:
+                                self.hovered_tile.element = self.selected_power
+                                if self.selected_power in ["lightning", "fire", "dark"]: self.audio.play('error')
+                                elif self.selected_power in ["light", "plant", "water"]: self.audio.play('found_city')
+                                else: self.audio.play('move')
                         else:
                             clicked_city = self.get_city_at_hex(hovered_hex)
                             if clicked_city:
