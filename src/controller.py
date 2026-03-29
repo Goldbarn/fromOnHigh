@@ -1,4 +1,5 @@
 import pygame
+import threading
 from config import FPS
 from hex import Hex
 from tile import Tile
@@ -6,6 +7,7 @@ from character import Character
 from city import City
 from utils import get_random_passable_hex
 from audio import AudioManager
+from ai import AIPlayer
 
 class Controller:
     def __init__(self, view):
@@ -39,6 +41,10 @@ class Controller:
         self.camera_x, self.camera_y = 0.0, 0.0
         self.hovered_tile = None
         self.audio = AudioManager()
+        
+        self.ai = AIPlayer()
+        self.ai_thinking = False
+        self.ai_decision = None
 
     def handle_events(self):
         mouse_pos = pygame.mouse.get_pos()
@@ -56,7 +62,8 @@ class Controller:
             elif self.game_state == "SETUP" and self.founder:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if self.hovered_tile and self.hovered_tile.element not in ["stone", "metal"]:
-                        self.founder.jump_to(hovered_hex)
+                        if self.founder.jump_to(hovered_hex):
+                            self.audio.play('move')
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_RETURN:
                         if not any(city.current_hex == self.founder.current_hex for city in self.cities):
@@ -66,6 +73,7 @@ class Controller:
                                 self.player_colors[self.current_player],
                                 self.current_player
                             ))
+                            self.audio.play('found_city')
                             self.current_player += 1
                             if self.current_player < self.num_players:
                                 self.founder = Character(get_random_passable_hex(self.grid), self.player_colors[self.current_player])
@@ -106,11 +114,19 @@ class Controller:
                             self.next_player()
 
 
+    def _fetch_ai_decision(self):
+        print(f"Asking AI for Player {self.current_player + 1}...")
+        decision = self.ai.get_decision(self.founder.current_hex, self.grid)
+        print(f"AI decided: {decision}")
+        self.ai_decision = decision
+        self.ai_thinking = False
+
     def update(self):
         if self.founder:
             self.founder.update()
             self.camera_x = self.founder.pos[0]
             self.camera_y = self.founder.pos[1]
+            
         for city in self.cities:
             city.update()
 

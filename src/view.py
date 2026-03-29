@@ -96,7 +96,15 @@ class View:
 
     def draw_instructions(self, text):
         instructions = self.font.render(text, True, (200, 200, 200))
-        self.screen.blit(instructions, (10, 10))
+        # Set the text position slightly shifted to allow for padding
+        text_rect = instructions.get_rect(topleft=(15, 15))
+        
+        # Create a padded background rectangle
+        bg_rect = text_rect.inflate(10, 10) # 5 pixels of padding on all sides
+        pygame.draw.rect(self.screen, (20, 20, 20), bg_rect) # Dark gray background
+        pygame.draw.rect(self.screen, (100, 100, 100), bg_rect, 2) # Lighter border
+        
+        self.screen.blit(instructions, text_rect)
 
     def draw_frame(self, grid, cities, founder, camera_x, camera_y, hovered_tile, instructions_text):
         self.screen.fill(COLOR_BG)
