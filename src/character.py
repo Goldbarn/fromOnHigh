@@ -1,5 +1,5 @@
 class Character:
-    def __init__(self, start_hex, color=(255, 255, 255), unit_type="founder", owner_id=None):
+    def __init__(self, start_hex, color=(255, 255, 255), unit_type="founder", owner_id=None, creation_research_level=1):
         self.current_hex = start_hex
         self.target_hex = start_hex
         self.pos = list(start_hex.to_pixel())
@@ -11,6 +11,7 @@ class Character:
         self.unit_type = unit_type
         self.owner_id = owner_id
         self.state = "idle"
+        self.creation_research_level = creation_research_level
 
     def jump_to(self, target_hex):
         if self.current_hex != target_hex and self.progress >= 1.0 and self.is_adjacent(target_hex):
