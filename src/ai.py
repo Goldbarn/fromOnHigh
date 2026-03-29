@@ -37,15 +37,28 @@ class AIPlayer:
             print(f"AI Connection Error: {e}")
         return {} # Return empty dict if something fails so the game can retry
 
-    def get_city_decision(self, q, r):
+    def get_city_decision(self, state):
         prompt = f"""
-        You are an AI tribe leader. Your city is at coordinates q: {q}, r: {r}.
-        Choose one action to produce this turn to help your civilization survive.
+        You are the leader of a surviving human tribe in a ruined, hex-grid world.
+        Your tribe's personality: {state['personality']}
         
-        Options: "train_army", "train_settler", "build_farm", "build_institute".
+        Current Status:
+        - Food: {state['food']}
+        - Wind Resources (Used for messaging): {state['wind']}
+        - Research Level: {state['research']}
+        
+        Surrounding Terrain: {state['surroundings']}
+        
+        Choose ONE action to ensure your survival or please the Ascended (the Gods):
+        - "train_army": Defend yourself or expand.
+        - "build_mine": Gather resources from your terrain.
+        - "build_institute": Advance your technology.
+        - "pray": Beg the Gods for mercy, blessings, or food.
+        - "send_message": Costs 1 Wind. (If you choose this, include a "message" field in your JSON).
         
         Respond ONLY with a valid JSON object. Do not include any other text.
-        Example: {{"action": "build_farm"}}
+        Example 1: {{"action": "build_mine"}}
+        Example 2: {{"action": "send_message", "message": "We seek an alliance."}}
         """
         
         payload = {

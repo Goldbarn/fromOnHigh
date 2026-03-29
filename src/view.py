@@ -108,16 +108,18 @@ class View:
 
     def draw_toolbar(self, powers, selected_power):
         rects = []
-        start_x = SCREEN_WIDTH // 2 - (len(powers) * 60) // 2
+        spacing = 50
+        box_size = 36
+        start_x = SCREEN_WIDTH // 2 - (len(powers) * spacing) // 2
         start_y = SCREEN_HEIGHT - 60
         
         # Toolbar background
-        bg_rect = pygame.Rect(start_x - 10, start_y - 10, len(powers) * 60 + 10, 60)
+        bg_rect = pygame.Rect(start_x - 10, start_y - 10, len(powers) * spacing + 10, 60)
         pygame.draw.rect(self.screen, (30, 30, 30), bg_rect, border_radius=8)
         pygame.draw.rect(self.screen, (100, 100, 100), bg_rect, 2, border_radius=8)
         
         for i, power in enumerate(powers):
-            rect = pygame.Rect(start_x + i * 60, start_y, 40, 40)
+            rect = pygame.Rect(start_x + i * spacing, start_y, box_size, box_size)
             color = ELEMENT_COLORS.get(power, (255, 255, 255))
             
             if power == selected_power:

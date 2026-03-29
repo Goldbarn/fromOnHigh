@@ -1,6 +1,6 @@
 import pygame
 import threading
-from config import FPS
+from config import FPS, ELEMENTS
 from hex import Hex
 from tile import Tile
 from character import Character
@@ -47,9 +47,20 @@ class Controller:
         self.ai_decision = None
         
         self.turn_start_time = 0
-        self.god_powers = ["light", "lightning", "fire", "dark"]
+        self.god_powers = list(ELEMENTS)
         self.selected_power = None
         self.toolbar_rects = []
+        
+        # Set up distinct AI personalities and starting resources
+        personalities = [
+            "Devoutly Religious, worships the Gods",
+            "Rebellious, hates the Gods",
+            "Cautious and Paranoid",
+            "Aggressive Warlord",
+            "Peaceful Scholar",
+            "Opportunistic Scavenger"
+        ]
+        self.player_stats = [{'food': 5, 'wind': 1, 'research': 1, 'personality': personalities[i]} for i in range(self.num_players)]
 
     def handle_events(self):
         mouse_pos = pygame.mouse.get_pos()
@@ -112,9 +123,9 @@ class Controller:
                     if not clicked_toolbar:
                         if self.selected_power and self.hovered_tile:
                             self.hovered_tile.element = self.selected_power
-                            if self.selected_power == "lightning": self.audio.play('error')
-                            elif self.selected_power == "fire": self.audio.play('train')
-                            else: self.audio.play('found_city')
+                            if self.selected_power in ["lightning", "fire", "dark"]: self.audio.play('error')
+                            elif self.selected_power in ["light", "plant", "water"]: self.audio.play('found_city')
+                            else: self.audio.play('move')
                         else:
                             clicked_city = self.get_city_at_hex(hovered_hex)
                             if clicked_city:
@@ -155,8 +166,29 @@ class Controller:
     def _fetch_play_ai_decision(self):
         city = self.get_current_player_city()
         if city:
+            # Look at adjacent tiles to tell the AI what is around them
+            adj_elements = []
+            dq_dr = [(1, 0), (0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1)]
+            for dq, dr in dq_dr:
+                hx = Hex(city.current_hex.q + dq, city.current_hex.r + dr)
+                for t in self.grid:
+                    if t.position == hx:
+                        adj_elements.append(t.element)
+                        break
+                        
+            stats = self.player_stats[self.current_player]
+            state = {
+                'q': city.current_hex.q,
+                'r': city.current_hex.r,
+                'food': stats['food'],
+                'wind': stats['wind'],
+                'research': stats['research'],
+                'personality': stats['personality'],
+                'surroundings': ", ".join(adj_elements) if adj_elements else "Empty void"
+            }
+            
             print(f"Asking AI for Player {self.current_player + 1}...")
-            decision = self.ai.get_city_decision(city.current_hex.q, city.current_hex.r)
+            decision = self.ai.get_city_decision(state)
             print(f"AI decided: {decision}")
             self.ai_decision = decision
         self.ai_thinking = False
@@ -188,13 +220,26 @@ class Controller:
                 self.ai_decision = None # Reset
                 
                 action = decision.get("action", "do_nothing")
+                stats = self.player_stats[self.current_player]
+                
                 if action in ["train_army", "train_settler"]:
                     self.audio.play('train')
-                elif action in ["build_farm", "build_institute"]:
+                    self.next_player(f"P{self.current_player + 1} trained a unit.")
+                elif action in ["build_farm", "build_institute", "build_mine"]:
                     self.audio.play('build')
+                    self.next_player(f"P{self.current_player + 1} built a {action.split('_')[1]}.")
+                elif action == "pray":
+                    self.audio.play('found_city')
+                    self.next_player(f"P{self.current_player + 1} prays to the Ascended!")
+                elif action == "send_message":
+                    msg = decision.get("message", "We send our regards.")
+                    if stats['wind'] > 0:
+                        stats['wind'] -= 1
+                        self.audio.play('move')
+                        self.next_player(f"P{self.current_player + 1}: '{msg}'")
                     
-                action_str = action.replace('_', ' ')
-                self.next_player(f"P{self.current_player + 1} chose {action_str}.")
+                else:
+                    self.next_player(f"P{self.current_player + 1} is idle.")
 
     def draw(self):
         self.toolbar_rects = self.view.draw_frame(
