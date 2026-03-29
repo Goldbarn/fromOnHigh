@@ -59,13 +59,14 @@ Other cities: {state['other_cities']}"""
 Leader. Personality: {state['personality']}
 Wealth: {state['wealth']} | Res: {state['resources']} | Resrch: {state['research']}
 Surroundings: {state['surroundings']}
-Costs: army(1 creature, 1 stone), settler(2 water, 2 earth), farm(2 earth), mine(2 plant), institute(2 metal, 1 fire), msg(1 wind)
+Costs: army(1 creature + 1 stone), settler(2 water + 2 earth), farm(2 earth), mine(2 plant), institute(2 metal + 1 fire), msg(1 wind), trade(3 of same for 1 other)
 Actions:
 - "train_army"
 - "train_settler"
 - "build_farm" (on plant/creature/water)
 - "build_mine" (not on ice)
 - "build_institute"
+- "trade" (add "give" and "get" element fields)
 - "pray"
 - "send_message" (add "message" field)
 Only choose an action if you have the required resources."""

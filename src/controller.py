@@ -74,7 +74,7 @@ class Controller:
             "Peaceful Scholar",
             "Opportunistic Scavenger"
         ]
-        self.player_stats = [{'resources': {e: 0 for e in ELEMENTS}, 'research': 1, 'personality': personalities[i]} for i in range(self.num_players)]
+        self.player_stats = [{'resources': {e: 0 for e in ELEMENTS}, 'research': 1, 'research_points': 0, 'personality': personalities[i]} for i in range(self.num_players)]
 
     def handle_events(self):
         screen_width = self.view.screen.get_width()
@@ -323,12 +323,17 @@ class Controller:
                 msg = f"P{self.current_player + 1} failed to train settler (insufficient resources)."
         elif action in ["build_farm", "build_institute", "build_mine"]:
             can_afford = False
+            fail_reason = "insufficient resources"
             if action == "build_farm" and stats['resources']['earth'] >= 2:
                 can_afford = True
             elif action == "build_mine" and stats['resources']['plant'] >= 2:
                 can_afford = True
-            elif action == "build_institute" and stats['resources']['metal'] >= 2 and stats['resources']['fire'] >= 1:
-                can_afford = True
+            elif action == "build_institute":
+                num_institutes = sum(1 for t in self.grid if t.building == 'institute' and t.building_owner == self.current_player)
+                if num_institutes >= 9:
+                    fail_reason = "max 9 reached"
+                elif stats['resources']['metal'] >= 2 and stats['resources']['fire'] >= 1:
+                    can_afford = True
                 
             if can_afford:
                 dq_dr = [(1, 0), (0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1)]
@@ -359,7 +364,22 @@ class Controller:
                     msg = f"P{self.current_player + 1} failed to build {action.split('_')[1]} (no valid tiles)."
             else:
                 self.audio.play('error')
-                msg = f"P{self.current_player + 1} failed to build {action.split('_')[1]} (insufficient resources)."
+                msg = f"P{self.current_player + 1} failed to build {action.split('_')[1]} ({fail_reason})."
+        elif action == "trade":
+            give_res = decision.get("give")
+            get_res = decision.get("get")
+            if give_res in ELEMENTS and get_res in ELEMENTS:
+                if stats['resources'].get(give_res, 0) >= 3:
+                    stats['resources'][give_res] -= 3
+                    stats['resources'][get_res] += 1
+                    self.audio.play('found_city')
+                    msg = f"P{self.current_player + 1} traded 3 {give_res} for 1 {get_res}."
+                else:
+                    self.audio.play('error')
+                    msg = f"P{self.current_player + 1} failed to trade (insufficient {give_res})."
+            else:
+                self.audio.play('error')
+                msg = f"P{self.current_player + 1} failed to trade (invalid resources)."
         elif action == "pray":
             self.audio.play('found_city')
             msg = f"P{self.current_player + 1} prays to the Ascended!"
@@ -412,13 +432,6 @@ class Controller:
         
         self._advance_turn_queue(msg)
 
-    def _calculate_military_power(self, player_id):
-        power = 0
-        for unit in self.units:
-            if unit.owner_id == player_id and unit.unit_type == 'army':
-                power += unit.creation_research_level
-        return power
-
     def _check_for_combat(self, moving_army):
         hex_coord = moving_army.current_hex
         # Find other armies on the same tile from different players
@@ -429,38 +442,33 @@ class Controller:
         return None
 
     def _resolve_combat(self, army1, army2):
-        p1_id = army1.owner_id
-        p2_id = army2.owner_id
-        p1_power = self._calculate_military_power(p1_id)
-        p2_power = self._calculate_military_power(p2_id)
+        level1 = army1.creation_research_level
+        level2 = army2.creation_research_level
+        delta_L = level1 - level2
 
-        underdog_win_prob = 0.6
+        win_prob_army1 = 0.5
+        if delta_L == 1:
+            win_prob_army1 = 0.7
+        elif delta_L >= 2: # Covers 3v1
+            win_prob_army1 = 0.95
+        elif delta_L == -1:
+            win_prob_army1 = 0.3
+        elif delta_L <= -2: # Covers 1v3
+            win_prob_army1 = 0.05
+
         roll = random.random()
 
-        winner, loser = (None, None)
-
-        if p1_power < p2_power:  # Player 1 is underdog
-            if roll < underdog_win_prob:
-                winner, loser = army1, army2
-            else:
-                winner, loser = army2, army1
-        elif p2_power < p1_power:  # Player 2 is underdog
-            if roll < underdog_win_prob:
-                winner, loser = army2, army1
-            else:
-                winner, loser = army1, army2
-        else:  # Equal power
-            if roll < 0.5:
-                winner, loser = army1, army2
-            else:
-                winner, loser = army2, army1
+        if roll < win_prob_army1:
+            winner, loser = army1, army2
+        else:
+            winner, loser = army2, army1
         
         if loser in self.units:
             self.units.remove(loser)
         
         self.audio.play('error')  # A battle sound
 
-        return f"Battle! P{winner.owner_id + 1}'s army defeated P{loser.owner_id + 1}'s army!"
+        return f"Battle! P{winner.owner_id + 1}'s army (Lvl {winner.creation_research_level}) defeated P{loser.owner_id + 1}'s army (Lvl {loser.creation_research_level})!"
 
     def update(self):
         if self.founder:
@@ -580,6 +588,16 @@ class Controller:
                 captured_cities_msgs.append(f"P{self.current_player + 1} captured a city from P{original_owner + 1}!")
                 self.audio.play('found_city')  # Capture sound
         
+        
+        # Research point accumulation
+        stats = self.player_stats[self.current_player]
+        num_institutes = sum(1 for t in self.grid if t.building == 'institute' and t.building_owner == self.current_player)
+        stats['research_points'] += num_institutes
+        if stats['research_points'] >= 3 and stats['research'] < 3:
+            stats['research'] += 1
+            stats['research_points'] -= 3
+            captured_cities_msgs.append(f"P{self.current_player + 1} reached Research Level {stats['research']}!")
+            self.audio.play('found_city') # Level up sound
         
         # Resource collection
         stats = self.player_stats[self.current_player]
