@@ -33,6 +33,14 @@ class View:
         if elem in ["fire", "lightning"]:
             pygame.draw.circle(self.screen, (255, 140, 0), (int(cx), int(cy)), int(HEX_SIZE * 0.2))
 
+        # Impassable: two small lines only (stone/metal blocked in controller)
+        if elem in ("stone", "metal"):
+            d = int(HEX_SIZE * 0.18)
+            px, py = int(cx), int(cy)
+            c = (255, 210, 90) if elem == "stone" else (85, 45, 50)
+            pygame.draw.line(self.screen, c, (px - d, py - d), (px + d, py + d), 2)
+            pygame.draw.line(self.screen, c, (px + d, py - d), (px - d, py + d), 2)
+
         pygame.draw.polygon(self.screen, (0, 0, 0), corners, outline_w)
 
     def draw_character(self, character, camera_x, camera_y):
