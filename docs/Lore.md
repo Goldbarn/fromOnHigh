@@ -1,5 +1,7 @@
 # The Lore of "From On High"
-  
+
+## Inspiration
+This game was inspired by a game called, "Civilization." The goal is to build an empire that "stands the test of time" by managing technology, diplomacy, culture, and military, ultimately striving to achieve victory over rival nations.  ![This is a picture of the world the players play in] (https://i0.wp.com/longreads.com/wp-content/uploads/2016/10/civilization-vi-distant-view.png?w=1920&ssl=1)
 ## About
 > "From on High" is a game about a world broken by a huge war caused by economic class division after a benevolent alien civilization gifted humanity with their advanced technology, and humanity destroyed itself with it due to class division.
 
