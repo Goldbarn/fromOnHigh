@@ -5,6 +5,7 @@ from tile import Tile
 from character import Character
 from city import City
 from utils import get_random_passable_hex
+from audio import AudioManager
 
 class Controller:
     def __init__(self, view):
@@ -35,6 +36,7 @@ class Controller:
         self.instructions_text = f"Player {self.current_player + 1}'s turn. Click to move, Enter to found City."
         self.camera_x, self.camera_y = 0.0, 0.0
         self.hovered_tile = None
+        self.audio = AudioManager()
 
     def handle_events(self):
         mouse_pos = pygame.mouse.get_pos()
@@ -52,12 +54,14 @@ class Controller:
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if self.game_state == "SETUP" and self.founder:
                     if self.hovered_tile and self.hovered_tile.element not in ["stone", "metal"]:
-                        self.founder.jump_to(hovered_hex)
+                        if self.founder.jump_to(hovered_hex):
+                            self.audio.play('move')
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RETURN:
                     if self.game_state == "SETUP" and self.founder:
                         if not any(city.current_hex == self.founder.current_hex for city in self.cities):
                             self.cities.append(City(self.founder.current_hex, self.grid, self.player_colors[self.current_player]))
+                            self.audio.play('found_city')
                             self.current_player += 1
                             if self.current_player < self.num_players:
                                 self.founder = Character(get_random_passable_hex(self.grid), self.player_colors[self.current_player])
