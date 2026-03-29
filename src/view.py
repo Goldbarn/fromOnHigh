@@ -106,7 +106,34 @@ class View:
         
         self.screen.blit(instructions, text_rect)
 
-    def draw_frame(self, grid, cities, founder, camera_x, camera_y, hovered_tile, instructions_text):
+    def draw_toolbar(self, powers, selected_power):
+        rects = []
+        spacing = 50
+        box_size = 36
+        start_x = SCREEN_WIDTH // 2 - (len(powers) * spacing) // 2
+        start_y = SCREEN_HEIGHT - 60
+        
+        # Toolbar background
+        bg_rect = pygame.Rect(start_x - 10, start_y - 10, len(powers) * spacing + 10, 60)
+        pygame.draw.rect(self.screen, (30, 30, 30), bg_rect, border_radius=8)
+        pygame.draw.rect(self.screen, (100, 100, 100), bg_rect, 2, border_radius=8)
+        
+        for i, power in enumerate(powers):
+            rect = pygame.Rect(start_x + i * spacing, start_y, box_size, box_size)
+            color = ELEMENT_COLORS.get(power, (255, 255, 255))
+            
+            if power == selected_power:
+                pygame.draw.rect(self.screen, (255, 215, 0), rect.inflate(8, 8), 4, border_radius=5) # Gold highlight
+                
+            pygame.draw.rect(self.screen, color, rect, border_radius=5)
+            pygame.draw.rect(self.screen, (0, 0, 0), rect, 2, border_radius=5)
+            
+            initial = self.font.render(power[0].upper(), True, (10, 10, 10) if sum(color)>300 else (240, 240, 240))
+            self.screen.blit(initial, initial.get_rect(center=rect.center))
+            rects.append(rect)
+        return rects
+
+    def draw_frame(self, grid, cities, founder, camera_x, camera_y, hovered_tile, instructions_text, game_state="SETUP", god_powers=None, selected_power=None):
         self.screen.fill(COLOR_BG)
         
         for tile in grid:
@@ -131,4 +158,10 @@ class View:
             self.draw_character(founder, camera_x, camera_y)
         
         self.draw_instructions(instructions_text)
+        
+        toolbar_rects = []
+        if game_state == "PLAY" and god_powers:
+            toolbar_rects = self.draw_toolbar(god_powers, selected_power)
+            
         pygame.display.flip()
+        return toolbar_rects

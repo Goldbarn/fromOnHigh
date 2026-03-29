@@ -16,7 +16,10 @@ class AudioManager:
             
         self.sounds = {
             'move': self._generate_jump_sound(),
-            'found_city': self._generate_gold_win_sound()
+            'found_city': self._generate_gold_win_sound(),
+            'train': self._generate_train_sound(),
+            'build': self._generate_build_sound(),
+            'error': self._generate_error_sound()
         }
 
     def play(self, name):
@@ -75,4 +78,28 @@ class AudioManager:
             
             # Bright synth twinkle (base frequency + 1 octave harmonic)
             return volume * 0.4 * (math.sin(2 * math.pi * freq * t) + 0.5 * math.sin(2 * math.pi * freq * 2 * t))
+        return self._generate_waveform(duration, wave)
+
+    def _generate_train_sound(self):
+        duration = 0.25
+        def wave(t):
+            # Metallic clank (mix of a few high frequencies with quick decay)
+            volume = math.exp(-10 * t)
+            return volume * 0.3 * (math.sin(2 * math.pi * 600 * t) + math.sin(2 * math.pi * 800 * t))
+        return self._generate_waveform(duration, wave)
+
+    def _generate_build_sound(self):
+        duration = 0.15
+        def wave(t):
+            # Low, quick woody thud
+            freq = 80
+            volume = math.exp(-20 * t)
+            return volume * math.sin(2 * math.pi * freq * t)
+        return self._generate_waveform(duration, wave)
+
+    def _generate_error_sound(self):
+        duration = 0.2
+        def wave(t):
+            volume = 0.3 * (1.0 - (t / duration))
+            return volume * (1.0 if math.sin(2 * math.pi * 150 * t) > 0 else -1.0) # Square wave buzz
         return self._generate_waveform(duration, wave)
