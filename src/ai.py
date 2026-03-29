@@ -2,9 +2,9 @@ import requests
 import json
 
 class AIPlayer:
-    def __init__(self, model="llama3"):
+    def __init__(self, model="llama3.2:latest"):
         self.model = model
-        self.url = "http://localhost:11434/api/generate"
+        self.url = "http://127.0.0.1:11434/api/generate"
 
     def get_decision(self, current_hex, grid):
         # Simple prompt instructing Ollama to act as a tribe and return JSON
@@ -29,7 +29,7 @@ class AIPlayer:
         }
         
         try:
-            response = requests.post(self.url, json=payload, timeout=15)
+            response = requests.post(self.url, json=payload, timeout=60)
             if response.status_code == 200:
                 result = response.json()
                 return json.loads(result['response'])
@@ -69,7 +69,7 @@ class AIPlayer:
         }
         
         try:
-            response = requests.post(self.url, json=payload, timeout=15)
+            response = requests.post(self.url, json=payload, timeout=60)
             if response.status_code == 200:
                 return json.loads(response.json()['response'])
         except Exception as e:
