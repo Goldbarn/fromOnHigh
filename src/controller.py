@@ -5,6 +5,7 @@ from tile import Tile
 from character import Character
 from city import City
 from utils import get_random_passable_hex
+from audio import AudioManager
 
 class Controller:
     def __init__(self, view):
@@ -35,6 +36,7 @@ class Controller:
         self.instructions_text = f"Player {self.current_player + 1}'s turn. Click to move, Enter to found City."
         self.camera_x, self.camera_y = 0.0, 0.0
         self.hovered_tile = None
+        self.audio = AudioManager()
 
     def handle_events(self):
         mouse_pos = pygame.mouse.get_pos()

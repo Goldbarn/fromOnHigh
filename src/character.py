@@ -14,6 +14,8 @@ class Character:
             self.start_pos = list(self.pos)
             self.target_hex = target_hex
             self.progress = 0.0
+            return True
+        return False
 
     def is_adjacent(self, target_hex):
         dq = self.current_hex.q - target_hex.q
