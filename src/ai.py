@@ -62,18 +62,22 @@ Other cities: {state['other_cities']}"""
 Leader. Personality: {state['personality']}
 Wealth: {state['wealth']} | Res: {state['resources']} | Resrch: {state['research']}
 Surroundings: {state['surroundings']}
-Costs: army(1 creature), settler(2 water), farm(1 earth), mine(1 stone), institute(1 metal + 1 fire), msg(1 wind), trade(3 of same resource to get 1 random other resource), condense(2 light or 2 dark to get 1 other)
+Other Players: {state.get('other_players', 'None')}
+Costs: army(1 creature, 1 stone), settler(2 water, 2 earth), farm(2 earth), mine(2 plant), institute(2 metal, 1 fire), msg(1 wind)
 Actions:
 - "train_army"
 - "train_settler"
 - "build_farm" (on plant/creature/water)
 - "build_mine" (not on ice)
 - "build_institute"
-- "trade" (add "give" element field)
-- "condense" (add "give" and "get" element fields)
+- "propose_trade" (Ex: {{"action": "propose_trade", "target_id": 2, "give_resource": "stone", "give_amount": 5, "get_resource": "fire", "get_amount": 5}})
 - "pray"
 - "send_message" (add "message" field)
 Only choose an action if you have the required resources."""
+
+        if state.get('pending_offers') and state['pending_offers'] != "None":
+            prompt += f"\n\nPending Trade Offers for you:\n{state['pending_offers']}"
+            prompt += """\nYou can also choose to "accept_trade" or "reject_trade". Ex: {"action": "accept_trade", "trade_id": 1}"""
 
         if state.get('god_whisper'):
             prompt += f"\n\nThe Gods command you (prioritize this): {state['god_whisper']}"

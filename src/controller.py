@@ -66,6 +66,8 @@ class Controller:
         self.whisper_target_player = None
         self.last_ai_failure = None
         self.ai_retry_count = 0
+        self.pending_trades = []
+        self.next_trade_id = 0
         
         # Set up distinct AI personalities and starting resources
         personalities = [
@@ -220,6 +222,21 @@ class Controller:
             stats = self.player_stats[self.current_player]
             wealth = sum(stats['resources'].values())
             
+            other_players_str = ", ".join([f"Player {i+1}" for i in range(self.num_players) if i != self.current_player])
+
+            pending_offers = [t for t in self.pending_trades if t['target_id'] == self.current_player]
+            pending_offers_str = "None"
+            if pending_offers:
+                offer_strings = []
+                for offer in pending_offers:
+                    proposer = offer['proposer_id'] + 1
+                    offer_res, offer_amt = offer['offer']['resource'], offer['offer']['amount']
+                    req_res, req_amt = offer['request']['resource'], offer['request']['amount']
+                    offer_strings.append(
+                        f"ID {offer['id']}: P{proposer} offers {offer_amt} {offer_res} for {req_amt} {req_res}."
+                    )
+                pending_offers_str = "\n".join(offer_strings)
+
             res_str = ", ".join([f"{v} {k}" for k, v in stats['resources'].items() if v > 0])
             if not res_str:
                 res_str = "0 resources"
@@ -232,7 +249,9 @@ class Controller:
                 'research': stats['research'],
                 'personality': stats['personality'],
                 'surroundings': ", ".join(adj_elements) if adj_elements else "Empty void",
-                'last_failure': self.last_ai_failure
+                'last_failure': self.last_ai_failure,
+                'other_players': other_players_str,
+                'pending_offers': pending_offers_str
             }
             
             if self.god_whisper:
@@ -381,23 +400,85 @@ class Controller:
                 self.audio.play('error')
                 msg = f"P{self.current_player + 1} failed to build {action.split('_')[1]} ({fail_reason})."
                 success = False
-        elif action == "trade":
-            give_res = decision.get("give")
-            if give_res in ELEMENTS:
-                if stats['resources'].get(give_res, 0) >= 3:
-                    stats['resources'][give_res] -= 3
-                    available_res = [e for e in ELEMENTS if e != give_res]
-                    get_res = random.choice(available_res)
-                    stats['resources'][get_res] += 1
-                    self.audio.play('trade')
-                    msg = f"P{self.current_player + 1} traded 3 {give_res} for 1 {get_res}."
-                else:
-                    self.audio.play('error')
-                    msg = f"P{self.current_player + 1} failed to trade (insufficient {give_res})."
-                    success = False
+        elif action == "propose_trade":
+            target_id = decision.get("target_id")
+            # AI gives player number (1-based), convert to 0-based ID
+            if isinstance(target_id, int):
+                target_id -= 1
+
+            give_res = decision.get("give_resource")
+            give_amount = decision.get("give_amount", 0)
+            get_res = decision.get("get_resource")
+            get_amount = decision.get("get_amount", 0)
+
+            is_valid = (
+                isinstance(target_id, int) and 0 <= target_id < self.num_players and
+                target_id != self.current_player and
+                give_res in ELEMENTS and get_res in ELEMENTS and
+                isinstance(give_amount, int) and give_amount > 0 and
+                isinstance(get_amount, int) and get_amount > 0
+            )
+
+            if not is_valid:
+                success = False
+                msg = "Trade proposal is invalid."
+            elif stats['resources'].get(give_res, 0) < give_amount:
+                success = False
+                msg = f"Failed to propose trade (insufficient {give_res})."
             else:
+                trade_id = self.next_trade_id
+                self.next_trade_id += 1
+                self.pending_trades.append({
+                    "id": trade_id,
+                    "proposer_id": self.current_player,
+                    "target_id": target_id,
+                    "offer": {"resource": give_res, "amount": give_amount},
+                    "request": {"resource": get_res, "amount": get_amount}
+                })
+                self.audio.play('move')
+                msg = f"P{self.current_player + 1} proposed a trade to P{target_id + 1}."
+        elif action == "accept_trade":
+            trade_id = decision.get("trade_id")
+            trade = next((t for t in self.pending_trades if t['id'] == trade_id and t['target_id'] == self.current_player), None)
+            
+            if not trade:
+                success = False
+                msg = "Failed to accept trade (invalid trade ID)."
+            else:
+                proposer_stats = self.player_stats[trade['proposer_id']]
+                target_stats = self.player_stats[trade['target_id']]
+                offer, request = trade['offer'], trade['request']
+
+                if proposer_stats['resources'].get(offer['resource'], 0) >= offer['amount'] and target_stats['resources'].get(request['resource'], 0) >= request['amount']:
+                    proposer_stats['resources'][offer['resource']] -= offer['amount']
+                    target_stats['resources'][offer['resource']] += offer['amount']
+                    target_stats['resources'][request['resource']] -= request['amount']
+                    proposer_stats['resources'][request['resource']] += request['amount']
+                    self.audio.play('trade')
+                    msg = f"P{self.current_player + 1} accepted trade with P{trade['proposer_id'] + 1}."
+                    self.pending_trades.remove(trade)
+                else:
+                    success = False
+                    msg = "Trade failed. One party could not afford the terms."
+                    self.pending_trades.remove(trade)
+        elif action == "reject_trade":
+            trade_id = decision.get("trade_id")
+            trade = next((t for t in self.pending_trades if t['id'] == trade_id and t['target_id'] == self.current_player), None)
+            
+            if not trade:
+                success = False
+                msg = "Failed to reject trade (invalid trade ID)."
+            else:
+                self.pending_trades.remove(trade)
                 self.audio.play('error')
-                msg = f"P{self.current_player + 1} failed to trade (invalid resource)."
+                msg = f"P{self.current_player + 1} rejected trade from P{trade['proposer_id'] + 1}."
+        elif action == "condense":
+            success = False
+            msg = "Condensing is no longer possible."
+        elif action == "pray":
+            self.audio.play('found_city')
+            msg = f"P{self.current_player + 1} prays to the Ascended!"
+        elif action == "send_message":
                 success = False
         elif action == "condense":
             give_res = decision.get("give")
