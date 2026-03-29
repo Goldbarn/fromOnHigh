@@ -1,4 +1,11 @@
 **The Stone Throwers of Babylon Present**
+
+# Team Members
+Anna Prack
+Rowan Ess
+Dorcus Mugisha
+Braylon
+
 # From On High
 
 A game of caveman AIs fighting for dominance in a shattered world, while devious gods sceme in the world beyond.\
