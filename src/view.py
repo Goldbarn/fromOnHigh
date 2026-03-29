@@ -7,15 +7,13 @@ class View:
     def __init__(self, screen, font):
         self.screen = screen
         self.font = font
+        self.base_corners = []
+        for i in range(6):
+            angle_rad = math.pi / 180 * (60 * i)
+            self.base_corners.append((HEX_SIZE * math.cos(angle_rad), HEX_SIZE * math.sin(angle_rad)))
 
     def get_hex_corners(self, center):
-        corners = []
-        for i in range(6):
-            angle_deg = 60 * i
-            angle_rad = math.pi / 180 * angle_deg
-            corners.append((center[0] + HEX_SIZE * math.cos(angle_rad),
-                            center[1] + HEX_SIZE * math.sin(angle_rad)))
-        return corners
+        return [(center[0] + bx, center[1] + by) for bx, by in self.base_corners]
 
     def element_hover_color(self, element):
         r, g, b = ELEMENT_COLORS[element]
@@ -161,7 +159,51 @@ class View:
             rects.append(rect)
         return rects
 
-    def draw_frame(self, grid, cities, founder, units, camera_x, camera_y, hovered_tile, instructions_text, game_state="SETUP", god_powers=None, selected_power=None):
+    def draw_city_menu(self, city, stats):
+        screen_width = self.screen.get_width()
+        
+        menu_w = 280
+        num_res = sum(1 for amount in stats['resources'].values() if amount > 0)
+        menu_h = 170 + max(1, num_res) * 25
+        
+        menu_x = screen_width - menu_w - 20
+        menu_y = 20
+        
+        s = pygame.Surface((menu_w, menu_h), pygame.SRCALPHA)
+        s.fill((30, 30, 30, 230))
+        self.screen.blit(s, (menu_x, menu_y))
+        
+        rect = pygame.Rect(menu_x, menu_y, menu_w, menu_h)
+        pygame.draw.rect(self.screen, city.color, rect, 3, border_radius=8)
+        
+        y_offset = menu_y + 15
+        
+        title = self.font.render(f"Player {city.owner_id + 1} Stats", True, city.color)
+        self.screen.blit(title, (menu_x + 15, y_offset))
+        y_offset += 30
+        
+        personality_str = f"Personality: {stats['personality']}"
+        if len(personality_str) > 30: personality_str = personality_str[:27] + "..."
+        
+        self.screen.blit(self.font.render(personality_str, True, (220, 220, 220)), (menu_x + 15, y_offset))
+        y_offset += 25
+        self.screen.blit(self.font.render(f"Research Level: {stats['research']}", True, (220, 220, 220)), (menu_x + 15, y_offset))
+        y_offset += 25
+        wealth = sum(stats['resources'].values())
+        self.screen.blit(self.font.render(f"Wealth: {wealth}", True, (220, 220, 220)), (menu_x + 15, y_offset))
+        y_offset += 30
+        self.screen.blit(self.font.render("Resources:", True, (255, 215, 0)), (menu_x + 15, y_offset))
+        y_offset += 25
+        
+        for res, amount in stats['resources'].items():
+            if amount > 0:
+                self.screen.blit(self.font.render(f"  {res.capitalize()}: {amount}", True, ELEMENT_COLORS.get(res, (200, 200, 200))), (menu_x + 15, y_offset))
+                y_offset += 25
+                
+        if num_res == 0:
+            self.screen.blit(self.font.render("  None", True, (150, 150, 150)), (menu_x + 15, y_offset))
+
+    def draw_frame(self, grid, cities, founder, units, camera_x, camera_y, hovered_tile, instructions_text, game_state="SETUP", god_powers=None, selected_power=None, selected_city=None, player_stats=None):
         screen_width = self.screen.get_width()
         screen_height = self.screen.get_height()
         self.screen.fill(COLOR_BG)
@@ -190,6 +232,10 @@ class View:
             self.draw_character(founder, camera_x, camera_y)
         
         self.draw_instructions(instructions_text)
+        
+        if selected_city and player_stats:
+            stats = player_stats[selected_city.owner_id]
+            self.draw_city_menu(selected_city, stats)
         
         toolbar_rects = []
         if game_state == "PLAY" and god_powers:

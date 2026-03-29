@@ -7,18 +7,9 @@ class AIPlayer:
         self.url = "http://127.0.0.1:11434/api/generate"
 
     def get_decision(self, current_hex, grid):
-        # Simple prompt instructing Ollama to act as a tribe and return JSON
         prompt = f"""
-        You are a primitive tribe in a hex-grid game. 
-        You are currently at coordinates q: {current_hex.q}, r: {current_hex.r}.
-        
-        You can choose to explore by moving, or build your city.
-        If you move, pick coordinates exactly 1 space away (e.g., q+1 or r+1, etc).
-        
-        Respond ONLY with a valid JSON object. Do not include any other text.
-        
-        To move, use this format: {{"action": "move", "q": {current_hex.q}, "r": {current_hex.r + 1}}}
-        To build your city, use this format: {{"action": "found_city"}}
+Tribe at q:{current_hex.q}, r:{current_hex.r}. Action: move (1 space away) or found_city.
+Return ONLY JSON. Ex: {{"action": "move", "q": {current_hex.q+1}, "r": {current_hex.r}}} OR {{"action": "found_city"}}
         """
         
         payload = {
@@ -39,36 +30,15 @@ class AIPlayer:
 
     def get_unit_decision(self, state):
         prompt = f"""
-        You are a {state['unit_type']} unit in a hex-grid game. 
-        You are currently at coordinates q: {state['q']}, r: {state['r']}.
-        
-        Surroundings:
-        {state['surroundings']}
-        
-        Directions to other cities:
-        {state['other_cities']}
-        """
+{state['unit_type']} unit at q:{state['q']}, r:{state['r']}.
+Surroundings: {state['surroundings']}
+Other cities: {state['other_cities']}
+Return ONLY JSON."""
         
         if state['unit_type'] == "army":
-            prompt += f"""
-        Choose ONE action:
-        - "move": travel to an adjacent hex.
-        - "guard": stay in place and defend the area.
-        
-        Respond ONLY with a valid JSON object. Do not include any other text.
-        To move: {{"action": "move", "q": {state['q'] + 1}, "r": {state['r']}}}
-        To guard: {{"action": "guard"}}
-            """
-        else: # settler
-            prompt += f"""
-        Choose ONE action:
-        - "move": travel to an adjacent hex.
-        - "settle": found a new city at your current location.
-        
-        Respond ONLY with a valid JSON object. Do not include any other text.
-        To move: {{"action": "move", "q": {state['q'] + 1}, "r": {state['r']}}}
-        To settle: {{"action": "settle"}}
-            """
+            prompt += """\nActions: "move" (adj hex) or "guard". Ex: {"action": "move", "q": 1, "r": 0} or {"action": "guard"}"""
+        else:
+            prompt += """\nActions: "move" (adj hex) or "settle". Ex: {"action": "move", "q": 1, "r": 0} or {"action": "settle"}"""
             
         payload = {"model": self.model, "prompt": prompt, "stream": False, "format": "json"}
         
@@ -82,29 +52,20 @@ class AIPlayer:
 
     def get_city_decision(self, state):
         prompt = f"""
-        You are the leader of a surviving human tribe in a ruined, hex-grid world.
-        Your tribe's personality: {state['personality']}
-        
-        Current Status:
-        - Food: {state['food']}
-        - Wind Resources (Used for messaging): {state['wind']}
-        - Research Level: {state['research']}
-        
-        Surrounding Terrain: {state['surroundings']}
-        
-        Choose ONE action to ensure your survival or please the Ascended (the Gods):
-        - "train_army": Defend yourself or expand.
-        - "train_settler": Expand your territory by creating a new settlement.
-        - "build_farm": Grow food to feed your people and units.
-        - "build_mine": Gather resources from your terrain.
-        - "build_institute": Advance your technology.
-        - "pray": Beg the Gods for mercy, blessings, or food.
-        - "send_message": Costs 1 Wind. (If you choose this, include a "message" field in your JSON).
-        
-        Respond ONLY with a valid JSON object. Do not include any other text.
-        Example 1: {{"action": "build_mine"}}
-        Example 2: {{"action": "send_message", "message": "We seek an alliance."}}
-        """
+Leader. Personality: {state['personality']}
+Wealth: {state['wealth']} | Res: {state['resources']} | Resrch: {state['research']}
+Surroundings: {state['surroundings']}
+Costs: army(1 creature, 1 stone), settler(2 water, 2 earth), farm(2 earth), mine(2 plant), institute(2 metal, 1 fire), msg(1 wind)
+Actions:
+- "train_army"
+- "train_settler"
+- "build_farm" (on plant/creature/water)
+- "build_mine" (not on ice)
+- "build_institute"
+- "pray"
+- "send_message" (add "message" field)
+Only choose an action if you have the required resources.
+Return ONLY JSON. Ex: {{"action": "train_army"}}"""
         
         payload = {
             "model": self.model,

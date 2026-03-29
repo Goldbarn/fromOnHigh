@@ -16,12 +16,15 @@ class Controller:
         self.running = True
 
         self.grid = []
+        self.grid_dict = {}
         radius = 40
         for q in range(-radius, radius + 1):
             r1 = max(-radius, -q - radius)
             r2 = min(radius, -q + radius)
             for r in range(r1, r2 + 1):
-                self.grid.append(Tile(Hex(q, r)))
+                tile = Tile(Hex(q, r))
+                self.grid.append(tile)
+                self.grid_dict[tile.position] = tile
 
         self.game_state = "SETUP"
         self.cities = []
@@ -35,7 +38,7 @@ class Controller:
             (50, 255, 255)
         ]
 
-        self.selected_city = False
+        self.selected_city = None
         self.current_player = 0
         self.founder = Character(get_random_passable_hex(self.grid), self.player_colors[self.current_player], unit_type="founder", owner_id=self.current_player)
         
@@ -65,7 +68,7 @@ class Controller:
             "Peaceful Scholar",
             "Opportunistic Scavenger"
         ]
-        self.player_stats = [{'resources': {e: 0 for e in ELEMENTS}, 'food': 5, 'wind': 1, 'research': 1, 'personality': personalities[i]} for i in range(self.num_players)]
+        self.player_stats = [{'resources': {e: 0 for e in ELEMENTS}, 'research': 1, 'personality': personalities[i]} for i in range(self.num_players)]
 
     def handle_events(self):
         screen_width = self.view.screen.get_width()
@@ -73,11 +76,7 @@ class Controller:
         mouse_pos = pygame.mouse.get_pos()
         hovered_hex = Hex.from_pixel(mouse_pos[0], mouse_pos[1], self.camera_x, self.camera_y, screen_width, screen_height)
         
-        self.hovered_tile = None
-        for t in self.grid:
-            if t.position == hovered_hex:
-                self.hovered_tile = t
-                break
+        self.hovered_tile = self.grid_dict.get(hovered_hex)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -94,12 +93,15 @@ class Controller:
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_RETURN:
                         if not any(city.current_hex == self.founder.current_hex for city in self.cities):
-                            self.cities.append(City(
+                            tile = self.grid_dict.get(self.founder.current_hex)
+                            new_city = City(
                                 self.founder.current_hex,
-                                self.grid,
+                                tile,
                                 self.player_colors[self.current_player],
                                 self.current_player
-                            ))
+                            )
+                            self.cities.append(new_city)
+                            self._give_founding_resources(self.current_player, new_city)
                             self.audio.play('found_city')
                             self.current_player += 1
                             if self.current_player < self.num_players:
@@ -146,25 +148,27 @@ class Controller:
                         else:
                             clicked_city = self.get_city_at_hex(hovered_hex)
                             if clicked_city:
+                                self.selected_city = clicked_city
                                 if clicked_city.owner_id == self.current_player:
-                                    self.selected_city = True
                                     self.instructions_text = f"Player {self.current_player + 1}: A to train army, S to train settler, F to build farm, M to build mine, I to build institute."
+                            else:
+                                self.selected_city = None
                 if event.type == pygame.KEYDOWN:
-                    if self.selected_city:
+                    if self.selected_city and self.selected_city.owner_id == self.current_player:
                         if event.key == pygame.K_a:
-                            self.selected_city = False
+                            self.selected_city = None
                             self._execute_city_decision({"action": "train_army"})
                         elif event.key == pygame.K_s:
-                            self.selected_city = False
+                            self.selected_city = None
                             self._execute_city_decision({"action": "train_settler"})
                         elif event.key == pygame.K_f:
-                            self.selected_city = False
+                            self.selected_city = None
                             self._execute_city_decision({"action": "build_farm"})
                         elif event.key == pygame.K_i:
-                            self.selected_city = False
+                            self.selected_city = None
                             self._execute_city_decision({"action": "build_institute"})
                         elif event.key == pygame.K_m:
-                            self.selected_city = False
+                            self.selected_city = None
                             self._execute_city_decision({"action": "build_mine"})
 
 
@@ -183,17 +187,16 @@ class Controller:
             dq_dr = [(1, 0), (0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1)]
             for dq, dr in dq_dr:
                 hx = Hex(city.current_hex.q + dq, city.current_hex.r + dr)
-                for t in self.grid:
-                    if t.position == hx:
-                        adj_elements.append(t.element)
-                        break
+                t = self.grid_dict.get(hx)
+                if t: adj_elements.append(t.element)
                         
             stats = self.player_stats[self.current_player]
+            wealth = sum(stats['resources'].values())
             state = {
                 'q': city.current_hex.q,
                 'r': city.current_hex.r,
-                'food': stats['food'],
-                'wind': stats['wind'],
+                'resources': stats['resources'],
+                'wealth': wealth,
                 'research': stats['research'],
                 'personality': stats['personality'],
                 'surroundings': ", ".join(adj_elements) if adj_elements else "Empty void"
@@ -210,24 +213,15 @@ class Controller:
         
         adj_info = []
         dq_dr = [(1, 0), (0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1)]
+        occupants = {c.current_hex: f"Player {c.owner_id + 1} city" for c in self.cities}
+        occupants.update({u.current_hex: f"Player {u.owner_id + 1} {u.unit_type}" for u in self.units})
+        
         for dq, dr in dq_dr:
             hx = Hex(unit.current_hex.q + dq, unit.current_hex.r + dr)
-            tile_element = "void"
-            for t in self.grid:
-                if t.position == hx:
-                    tile_element = t.element
-                    break
-            
-            occupant = "none"
-            for u in self.units:
-                if u.current_hex == hx:
-                    occupant = f"Player {u.owner_id + 1} {u.unit_type}"
-                    break
-            for c in self.cities:
-                if c.current_hex == hx:
-                    occupant = f"Player {c.owner_id + 1} city"
-                    break
-            adj_info.append(f"Direction (dq:{dq}, dr:{dr}): Tile: {tile_element}, Occupant: {occupant}")
+            t = self.grid_dict.get(hx)
+            tile_element = t.element if t else "void"
+            occupant = occupants.get(hx, "none")
+            adj_info.append(f"dir({dq},{dr}): {tile_element}, {occupant}")
             
         other_cities_info = []
         for c in self.cities:
@@ -270,41 +264,76 @@ class Controller:
             return
             
         if action == "train_army":
-            self.units.append(Character(city.current_hex, self.player_colors[self.current_player], unit_type="army", owner_id=self.current_player))
-            self.audio.play('train')
-            msg = f"P{self.current_player + 1} trained an army."
-        elif action == "train_settler":
-            self.units.append(Character(city.current_hex, self.player_colors[self.current_player], unit_type="settler", owner_id=self.current_player))
-            self.audio.play('train')
-            msg = f"P{self.current_player + 1} trained a settler."
-        elif action in ["build_farm", "build_institute", "build_mine"]:
-            dq_dr = [(1, 0), (0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1)]
-            adj = [Hex(city.current_hex.q + dq, city.current_hex.r + dr) for dq, dr in dq_dr]
-            valid_tiles = [t for t in self.grid if t.position in adj + [city.current_hex] and not t.building]
-            
-            if action == "build_farm":
-                valid_tiles = [t for t in valid_tiles if t.element in ["plant", "creature", "water"]]
-            elif action == "build_mine":
-                valid_tiles = [t for t in valid_tiles if t.element != "ice"]
-            
-            if valid_tiles:
-                chosen = random.choice(valid_tiles)
-                chosen.building = action.split('_')[1]
-                chosen.building_owner = self.current_player
-                self.audio.play('build')
-                msg = f"P{self.current_player + 1} built a {chosen.building}."
+            if stats['resources']['creature'] >= 1 and stats['resources']['stone'] >= 1:
+                stats['resources']['creature'] -= 1
+                stats['resources']['stone'] -= 1
+                self.units.append(Character(city.current_hex, self.player_colors[self.current_player], unit_type="army", owner_id=self.current_player))
+                self.audio.play('train')
+                msg = f"P{self.current_player + 1} trained an army."
             else:
                 self.audio.play('error')
-                msg = f"P{self.current_player + 1} failed to build {action.split('_')[1]}."
+                msg = f"P{self.current_player + 1} failed to train army (insufficient resources)."
+        elif action == "train_settler":
+            if stats['resources']['water'] >= 2 and stats['resources']['earth'] >= 2:
+                stats['resources']['water'] -= 2
+                stats['resources']['earth'] -= 2
+                self.units.append(Character(city.current_hex, self.player_colors[self.current_player], unit_type="settler", owner_id=self.current_player))
+                self.audio.play('train')
+                msg = f"P{self.current_player + 1} trained a settler."
+            else:
+                self.audio.play('error')
+                msg = f"P{self.current_player + 1} failed to train settler (insufficient resources)."
+        elif action in ["build_farm", "build_institute", "build_mine"]:
+            can_afford = False
+            if action == "build_farm" and stats['resources']['earth'] >= 2:
+                can_afford = True
+            elif action == "build_mine" and stats['resources']['plant'] >= 2:
+                can_afford = True
+            elif action == "build_institute" and stats['resources']['metal'] >= 2 and stats['resources']['fire'] >= 1:
+                can_afford = True
+                
+            if can_afford:
+                dq_dr = [(1, 0), (0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1)]
+                adj = [Hex(city.current_hex.q + dq, city.current_hex.r + dr) for dq, dr in dq_dr]
+                valid_tiles = [self.grid_dict[hx] for hx in adj + [city.current_hex] if hx in self.grid_dict and not self.grid_dict[hx].building]
+                
+                if action == "build_farm":
+                    valid_tiles = [t for t in valid_tiles if t.element in ["plant", "creature", "water"]]
+                elif action == "build_mine":
+                    valid_tiles = [t for t in valid_tiles if t.element != "ice"]
+                
+                if valid_tiles:
+                    if action == "build_farm":
+                        stats['resources']['earth'] -= 2
+                    elif action == "build_mine":
+                        stats['resources']['plant'] -= 2
+                    elif action == "build_institute":
+                        stats['resources']['metal'] -= 2
+                        stats['resources']['fire'] -= 1
+                        
+                    chosen = random.choice(valid_tiles)
+                    chosen.building = action.split('_')[1]
+                    chosen.building_owner = self.current_player
+                    self.audio.play('build')
+                    msg = f"P{self.current_player + 1} built a {chosen.building}."
+                else:
+                    self.audio.play('error')
+                    msg = f"P{self.current_player + 1} failed to build {action.split('_')[1]} (no valid tiles)."
+            else:
+                self.audio.play('error')
+                msg = f"P{self.current_player + 1} failed to build {action.split('_')[1]} (insufficient resources)."
         elif action == "pray":
             self.audio.play('found_city')
             msg = f"P{self.current_player + 1} prays to the Ascended!"
         elif action == "send_message":
             m = decision.get("message", "We send our regards.")
-            if stats['wind'] > 0:
-                stats['wind'] -= 1
+            if stats['resources']['wind'] > 0:
+                stats['resources']['wind'] -= 1
                 self.audio.play('move')
                 msg = f"P{self.current_player + 1}: '{m}'"
+            else:
+                self.audio.play('error')
+                msg = f"P{self.current_player + 1} lacks wind to send message."
         
         self._advance_turn_queue(msg)
 
@@ -314,7 +343,7 @@ class Controller:
         
         if action == "move":
             target = Hex(decision.get("q", unit.current_hex.q), decision.get("r", unit.current_hex.r))
-            tile = next((t for t in self.grid if t.position == target), None)
+            tile = self.grid_dict.get(target)
             if tile and tile.element not in ["stone", "metal"]:
                 if unit.jump_to(target):
                     self.audio.play('move')
@@ -326,7 +355,10 @@ class Controller:
             msg = f"P{self.current_player + 1} army is guarding."
         elif action == "settle" and unit.unit_type == "settler":
             if not any(c.current_hex == unit.current_hex for c in self.cities):
-                self.cities.append(City(unit.current_hex, self.grid, unit.color, unit.owner_id))
+                tile = self.grid_dict.get(unit.current_hex)
+                new_city = City(unit.current_hex, tile, unit.color, unit.owner_id)
+                self.cities.append(new_city)
+                self._give_founding_resources(unit.owner_id, new_city)
                 if unit in self.units:
                     self.units.remove(unit)
                 self.audio.play('found_city')
@@ -385,7 +417,9 @@ class Controller:
             self.instructions_text,
             self.game_state,
             self.god_powers,
-            self.selected_power
+            self.selected_power,
+            self.selected_city,
+            self.player_stats
         )
 
     def get_player_cities(self, player_index):
@@ -406,18 +440,59 @@ class Controller:
         if city:
             self.camera_x, self.camera_y = city.pos
 
+    def get_city_hexes(self, city):
+        return [
+            city.current_hex,
+            Hex(city.current_hex.q + 1, city.current_hex.r),
+            Hex(city.current_hex.q + 1, city.current_hex.r - 1),
+            Hex(city.current_hex.q, city.current_hex.r - 1),
+            Hex(city.current_hex.q - 1, city.current_hex.r),
+            Hex(city.current_hex.q - 1, city.current_hex.r + 1),
+            Hex(city.current_hex.q, city.current_hex.r + 1),
+        ]
+
+    def _give_founding_resources(self, player_id, city):
+        stats = self.player_stats[player_id]
+        for hx in self.get_city_hexes(city):
+            tile = self.grid_dict.get(hx)
+            if tile:
+                stats['resources'][tile.element] += 2
+
     def next_player(self, last_action_msg=""):
         self.current_player = (self.current_player + 1) % self.num_players
         
         # Resource collection
         stats = self.player_stats[self.current_player]
+        
+        # 1. City bounds resources (plant, creature, water)
+        for city in self.get_player_cities(self.current_player):
+            for hx in self.get_city_hexes(city):
+                tile = self.grid_dict.get(hx)
+                if tile and tile.element in ["plant", "creature", "water"]:
+                    stats['resources'][tile.element] += 1
+
+        # 2. Mine and farm resources
         for t in self.grid:
             if t.building_owner == self.current_player:
-                if t.building == "farm" and t.element in ["plant", "creature", "water"]:
-                    stats['resources'][t.element] += 2
-                elif t.building == "mine" and t.element != "ice":
+                if t.building in ["farm", "mine"]:
                     stats['resources'][t.element] += 1
-        
+                    
+        # 3. Upkeep
+        units_to_remove = []
+        for u in self.units:
+            if u.owner_id == self.current_player:
+                if stats['resources']['water'] > 0:
+                    stats['resources']['water'] -= 1
+                elif stats['resources']['plant'] > 0:
+                    stats['resources']['plant'] -= 1
+                elif stats['resources']['creature'] > 0:
+                    stats['resources']['creature'] -= 1
+                else:
+                    units_to_remove.append(u)
+                    
+        for u in units_to_remove:
+            self.units.remove(u)
+
         self.turn_start_time = pygame.time.get_ticks()
         self.turn_queue = ["CITY"] + [u for u in self.units if u.owner_id == self.current_player]
         self.current_action_entity = self.turn_queue.pop(0) if self.turn_queue else "CITY"
