@@ -37,9 +37,9 @@ Is a diplomatic envoy sent from one ai player to anoter or a group of ai players
 
 ## Food
 Is a form of resources.\
-There is plant and animal food. Every unit and settlemnet requires 1 food for every turn of upkeep.\
+Plants and animals are food. Every unit and settlemnet requires 1 food for every turn of upkeep.\
 Plant food can be used for other things such as buildings (in the lower research levels).\
 
-cities and units
-Cities are stationary objects that have two abilities; to create buildings and units, but not at the same time. Cities can be destroyed by enemy armies while buildings cannot. There are 2 types of buildings: mines and institutes. There are 2 types of units: army & settler. The cities can only do 1 action per turn, which are usually to start new construction of units/buildings or continue construction.
-Units are mobile objects An army can attack other objects such as other armies, settlers, or the cities The buildings cannot be damaged regardless of if the city it resides in has been attacked. The settlers are allowed to move, place down cities, use resources to build and dissapear. If food tiles are naturally in city, it provides 1 food and If a city has a mine on it, the city provides 2 food. to the civilization that owns it.
+## Cities and Units
+Cities are stationary objects that have two abilities; to create buildings and units, but not at the same time. Cities can be destroyed by enemy armies while buildings cannot. There are 2 types of buildings: mines and institutes. There are 2 types of units: army & settler. The cities can only do 1 action per turn, which are usually to start new construction of units/buildings or continue construction.\
+Units are mobile objects An army can attack other objects such as other armies, settlers, or the cities The buildings cannot be damaged regardless of if the city it resides in has been attacked. The settlers are allowed to move, place down cities, use resources to build and dissapear. If food tiles are naturally in city, it provides 1 food and If a city has a mine on it, it provides 2 food to the civilization that owns it.
