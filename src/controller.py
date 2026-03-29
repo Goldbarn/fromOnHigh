@@ -65,6 +65,7 @@ class Controller:
         self.god_whisper = ""
         self.whisper_target_player = None
         self.last_ai_failure = None
+        self.ai_retry_count = 0
         
         # Set up distinct AI personalities and starting resources
         personalities = [
@@ -289,6 +290,8 @@ class Controller:
         self.ai_thinking = False
 
     def _advance_turn_queue(self, last_action_msg=""):
+        self.ai_retry_count = 0
+        
         if last_action_msg:
             self.instructions_text = last_action_msg
             
@@ -380,12 +383,13 @@ class Controller:
                 success = False
         elif action == "trade":
             give_res = decision.get("give")
-            get_res = decision.get("get")
-            if give_res in ELEMENTS and get_res in ELEMENTS:
+            if give_res in ELEMENTS:
                 if stats['resources'].get(give_res, 0) >= 3:
                     stats['resources'][give_res] -= 3
+                    available_res = [e for e in ELEMENTS if e != give_res]
+                    get_res = random.choice(available_res)
                     stats['resources'][get_res] += 1
-                    self.audio.play('found_city')
+                    self.audio.play('trade')
                     msg = f"P{self.current_player + 1} traded 3 {give_res} for 1 {get_res}."
                 else:
                     self.audio.play('error')
@@ -393,7 +397,24 @@ class Controller:
                     success = False
             else:
                 self.audio.play('error')
-                msg = f"P{self.current_player + 1} failed to trade (invalid resources)."
+                msg = f"P{self.current_player + 1} failed to trade (invalid resource)."
+                success = False
+        elif action == "condense":
+            give_res = decision.get("give")
+            get_res = decision.get("get")
+            if give_res in ["light", "dark"] and get_res in ELEMENTS:
+                if stats['resources'].get(give_res, 0) >= 2:
+                    stats['resources'][give_res] -= 2
+                    stats['resources'][get_res] += 1
+                    self.audio.play('trade')
+                    msg = f"P{self.current_player + 1} condensed 2 {give_res} for 1 {get_res}."
+                else:
+                    self.audio.play('error')
+                    msg = f"P{self.current_player + 1} failed to condense (insufficient {give_res})."
+                    success = False
+            else:
+                self.audio.play('error')
+                msg = f"P{self.current_player + 1} failed to condense (invalid resource)."
                 success = False
         elif action == "pray":
             self.audio.play('found_city')
@@ -418,9 +439,14 @@ class Controller:
             self.last_ai_failure = None
             self._advance_turn_queue(msg)
         else:
-            self.last_ai_failure = f"Attempted '{action}', but failed: {msg}"
-            self.instructions_text = msg
-            self.turn_start_time = pygame.time.get_ticks()
+            self.ai_retry_count += 1
+            if self.ai_retry_count >= 3:
+                self.last_ai_failure = None
+                self._advance_turn_queue(f"{msg} (Turn forfeited)")
+            else:
+                self.last_ai_failure = f"Attempted '{action}', but failed: {msg}"
+                self.instructions_text = f"{msg} (Retry {self.ai_retry_count}/3)"
+                self.turn_start_time = pygame.time.get_ticks()
 
     def _execute_unit_decision(self, unit, decision):
         action = decision.get("action", "do_nothing")
@@ -476,9 +502,14 @@ class Controller:
             self.last_ai_failure = None
             self._advance_turn_queue(msg)
         else:
-            self.last_ai_failure = f"Attempted '{action}', but failed: {msg}"
-            self.instructions_text = msg
-            self.turn_start_time = pygame.time.get_ticks()
+            self.ai_retry_count += 1
+            if self.ai_retry_count >= 3:
+                self.last_ai_failure = None
+                self._advance_turn_queue(f"{msg} (Turn forfeited)")
+            else:
+                self.last_ai_failure = f"Attempted '{action}', but failed: {msg}"
+                self.instructions_text = f"{msg} (Retry {self.ai_retry_count}/3)"
+                self.turn_start_time = pygame.time.get_ticks()
 
     def _check_for_combat(self, moving_army):
         hex_coord = moving_army.current_hex
@@ -682,6 +713,7 @@ class Controller:
         self.turn_start_time = pygame.time.get_ticks()
         self.turn_queue = ["CITY"] + [u for u in self.units if u.owner_id == self.current_player]
         self.current_action_entity = self.turn_queue.pop(0) if self.turn_queue else "CITY"
+        self.ai_retry_count = 0
         
         base_msg = f"Player {self.current_player + 1}'s turn."
         

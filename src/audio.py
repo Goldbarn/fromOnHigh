@@ -19,7 +19,8 @@ class AudioManager:
             'found_city': self._generate_gold_win_sound(),
             'train': self._generate_train_sound(),
             'build': self._generate_build_sound(),
-            'error': self._generate_error_sound()
+            'error': self._generate_error_sound(),
+            'trade': self._generate_ding_sound()
         }
 
     def play(self, name):
@@ -102,4 +103,12 @@ class AudioManager:
         def wave(t):
             volume = 0.3 * (1.0 - (t / duration))
             return volume * (1.0 if math.sin(2 * math.pi * 150 * t) > 0 else -1.0) # Square wave buzz
+        return self._generate_waveform(duration, wave)
+
+    def _generate_ding_sound(self):
+        duration = 0.3
+        def wave(t):
+            # Clear, happy chime mimicking a small bell or a 'ding' (C6 and E6)
+            volume = math.exp(-12 * t)
+            return volume * 0.4 * (math.sin(2 * math.pi * 1046.5 * t) + 0.5 * math.sin(2 * math.pi * 1318.5 * t))
         return self._generate_waveform(duration, wave)
