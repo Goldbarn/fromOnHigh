@@ -36,6 +36,9 @@ Other cities: {state['other_cities']}"""
 
         if state.get('god_whisper'):
             prompt += f"\n\nThe Gods command you (prioritize this): {state['god_whisper']}"
+            
+        if state.get('last_failure'):
+            prompt += f"\n\nWARNING: Your last action failed! Reason: {state['last_failure']}. Choose a DIFFERENT, valid action."
         
         prompt += "\nReturn ONLY JSON."
 
@@ -73,6 +76,9 @@ Only choose an action if you have the required resources."""
 
         if state.get('god_whisper'):
             prompt += f"\n\nThe Gods command you (prioritize this): {state['god_whisper']}"
+
+        if state.get('last_failure'):
+            prompt += f"\n\nWARNING: Your last action failed! Reason: {state['last_failure']}. Choose a DIFFERENT, valid action."
 
         prompt += """\nReturn ONLY JSON. Ex: {"action": "train_army"}"""
         

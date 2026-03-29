@@ -64,6 +64,7 @@ class Controller:
         self.current_text = ""
         self.god_whisper = ""
         self.whisper_target_player = None
+        self.last_ai_failure = None
         
         # Set up distinct AI personalities and starting resources
         personalities = [
@@ -217,14 +218,20 @@ class Controller:
                         
             stats = self.player_stats[self.current_player]
             wealth = sum(stats['resources'].values())
+            
+            res_str = ", ".join([f"{v} {k}" for k, v in stats['resources'].items() if v > 0])
+            if not res_str:
+                res_str = "0 resources"
+                
             state = {
                 'q': city.current_hex.q,
                 'r': city.current_hex.r,
-                'resources': stats['resources'],
+                'resources': res_str,
                 'wealth': wealth,
                 'research': stats['research'],
                 'personality': stats['personality'],
-                'surroundings': ", ".join(adj_elements) if adj_elements else "Empty void"
+                'surroundings': ", ".join(adj_elements) if adj_elements else "Empty void",
+                'last_failure': self.last_ai_failure
             }
             
             if self.god_whisper:
@@ -266,7 +273,8 @@ class Controller:
             'r': unit.current_hex.r,
             'unit_type': unit.unit_type,
             'surroundings': "\n        ".join(adj_info),
-            'other_cities': "\n        ".join(other_cities_info) if other_cities_info else "None known"
+            'other_cities': "\n        ".join(other_cities_info) if other_cities_info else "None known",
+            'last_failure': self.last_ai_failure
         }
         
         if self.god_whisper:
@@ -295,6 +303,7 @@ class Controller:
         stats = self.player_stats[self.current_player]
         city = self.get_current_player_city()
         msg = f"P{self.current_player + 1} city is idle."
+        success = True
         
         if not city:
             self._advance_turn_queue(msg)
@@ -311,6 +320,7 @@ class Controller:
             else:
                 self.audio.play('error')
                 msg = f"P{self.current_player + 1} failed to train army (insufficient resources)."
+                success = False
         elif action == "train_settler":
             if stats['resources']['water'] >= 2 and stats['resources']['earth'] >= 2:
                 stats['resources']['water'] -= 2
@@ -321,6 +331,7 @@ class Controller:
             else:
                 self.audio.play('error')
                 msg = f"P{self.current_player + 1} failed to train settler (insufficient resources)."
+                success = False
         elif action in ["build_farm", "build_institute", "build_mine"]:
             can_afford = False
             fail_reason = "insufficient resources"
@@ -362,9 +373,11 @@ class Controller:
                 else:
                     self.audio.play('error')
                     msg = f"P{self.current_player + 1} failed to build {action.split('_')[1]} (no valid tiles)."
+                    success = False
             else:
                 self.audio.play('error')
                 msg = f"P{self.current_player + 1} failed to build {action.split('_')[1]} ({fail_reason})."
+                success = False
         elif action == "trade":
             give_res = decision.get("give")
             get_res = decision.get("get")
@@ -377,9 +390,11 @@ class Controller:
                 else:
                     self.audio.play('error')
                     msg = f"P{self.current_player + 1} failed to trade (insufficient {give_res})."
+                    success = False
             else:
                 self.audio.play('error')
                 msg = f"P{self.current_player + 1} failed to trade (invalid resources)."
+                success = False
         elif action == "pray":
             self.audio.play('found_city')
             msg = f"P{self.current_player + 1} prays to the Ascended!"
@@ -392,12 +407,25 @@ class Controller:
             else:
                 self.audio.play('error')
                 msg = f"P{self.current_player + 1} lacks wind to send message."
+                success = False
+        elif action == "do_nothing":
+            pass
+        else:
+            success = False
+            msg = f"Invalid action: {action}"
         
-        self._advance_turn_queue(msg)
+        if success:
+            self.last_ai_failure = None
+            self._advance_turn_queue(msg)
+        else:
+            self.last_ai_failure = f"Attempted '{action}', but failed: {msg}"
+            self.instructions_text = msg
+            self.turn_start_time = pygame.time.get_ticks()
 
     def _execute_unit_decision(self, unit, decision):
         action = decision.get("action", "do_nothing")
         msg = f"P{self.current_player + 1} unit is idle."
+        success = True
         
         if action == "move":
             target = Hex(decision.get("q", unit.current_hex.q), decision.get("r", unit.current_hex.r))
@@ -415,6 +443,12 @@ class Controller:
                         msg = combat_msg
                     else:
                         msg = f"P{self.current_player + 1} unit moved."
+                else:
+                    success = False
+                    msg = "Move failed: Invalid target distance or already moving."
+            else:
+                success = False
+                msg = "Move failed: Tile is impassable or out of bounds."
         elif action == "guard" and unit.unit_type == "army":
             unit.state = "guarding"
             self.audio.play('build')
@@ -429,8 +463,22 @@ class Controller:
                     self.units.remove(unit)
                 self.audio.play('found_city')
                 msg = f"P{self.current_player + 1} founded a new city."
+            else:
+                success = False
+                msg = "Settle failed: City already exists here."
+        elif action == "do_nothing":
+            pass
+        else:
+            success = False
+            msg = f"Invalid action: {action}"
         
-        self._advance_turn_queue(msg)
+        if success:
+            self.last_ai_failure = None
+            self._advance_turn_queue(msg)
+        else:
+            self.last_ai_failure = f"Attempted '{action}', but failed: {msg}"
+            self.instructions_text = msg
+            self.turn_start_time = pygame.time.get_ticks()
 
     def _check_for_combat(self, moving_army):
         hex_coord = moving_army.current_hex
