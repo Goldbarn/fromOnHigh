@@ -1,8 +1,9 @@
 class City:
-    def __init__(self, start_hex, grid, color=(255, 255, 255)):
+    def __init__(self, start_hex, grid, color=(255, 255, 255), owner_id=None):
         self.current_hex = start_hex
         self.pos = list(start_hex.to_pixel())
         self.color = color
+        self.owner_id = owner_id
         
         # Turn the tile it is on into a white color (light element)
         for tile in grid:

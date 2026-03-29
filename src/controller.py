@@ -51,8 +51,8 @@ class Controller:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                if self.game_state == "SETUP" and self.founder:
+            elif self.game_state == "SETUP" and self.founder:
+                if event.type == pygame.MOUSEBUTTONDOWN:
                     if self.hovered_tile and self.hovered_tile.element not in ["stone", "metal"]:
                         if self.founder.jump_to(hovered_hex):
                             self.audio.play('move')
@@ -61,15 +61,40 @@ class Controller:
                     if self.game_state == "SETUP" and self.founder:
                         if not any(city.current_hex == self.founder.current_hex for city in self.cities):
                             self.cities.append(City(self.founder.current_hex, self.grid, self.player_colors[self.current_player]))
-                            self.audio.play('found_city')
-                            self.current_player += 1
                             if self.current_player < self.num_players:
                                 self.founder = Character(get_random_passable_hex(self.grid), self.player_colors[self.current_player])
                                 self.instructions_text = f"Player {self.current_player + 1}'s turn. Click to move, Enter to found City."
                             else:
                                 self.founder = None
                                 self.game_state = "PLAY"
-                                self.instructions_text = "All cities founded! Main game phase."
+                                self.current_player = 0
+                                self.instructions_text = f"Player {self.current_player + 1}'s turn. Main game phase."
+                                self.center_camera_on_current_player_city()
+            elif self.game_state == "PLAY":
+                if event.type == pygame.MOUSEMOTION:
+                    if self.hovered_tile:
+                        self.instructions_text = f"Hovering {self.hovered_tile.element} tile at ({hovered_hex.q}, {hovered_hex.r})"
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if self.hovered_tile:
+                        self.instructions_text = f"Player {self.current_player + 1} clicked tile..."
+                        self.next_player()
+            # elif event.type == pygame.MOUSEBUTTONDOWN:
+            #     if self.game_state == "SETUP" and self.founder:
+            #         if self.hovered_tile and self.hovered_tile.element not in ["stone", "metal"]:
+            #             self.founder.jump_to(hovered_hex)
+            # elif event.type == pygame.KEYDOWN:
+            #     if event.key == pygame.K_RETURN:
+            #         if self.game_state == "SETUP" and self.founder:
+            #             if not any(city.current_hex == self.founder.current_hex for city in self.cities):
+            #                 self.cities.append(City(self.founder.current_hex, self.grid, self.player_colors[self.current_player]))
+            #                 self.current_player += 1
+            #                 if self.current_player < self.num_players:
+            #                     self.founder = Character(get_random_passable_hex(self.grid), self.player_colors[self.current_player])
+            #                     self.instructions_text = f"Player {self.current_player + 1}'s turn. Click to move, Enter to found City."
+            #                 else:
+            #                     self.founder = None
+            #                     self.game_state = "PLAY"
+            #                     self.instructions_text = "All cities founded! Main game phase."
 
     def update(self):
         if self.founder:
@@ -89,6 +114,26 @@ class Controller:
             self.hovered_tile, 
             self.instructions_text
         )
+
+    def get_player_cities(self, player_index):
+        return [city for city in self.cities if city.owner_id == player_index]
+
+    def get_current_player_cities(self):
+        return self.get_player_cities(self.current_player)
+
+    def get_current_player_city(self):
+        cities = self.get_current_player_cities()
+        return cities[0] if cities else None
+
+    def center_camera_on_current_player_city(self):
+        city = self.get_current_player_city()
+        if city:
+            self.camera_x, self.camera_y = city.pos
+
+    def next_player(self):
+        self.current_player = (self.current_player + 1) % self.num_players
+        self.instructions_text = f"Player {self.current_player + 1}'s turn."
+        self.center_camera_on_current_player_city()
 
     def run(self):
         clock = pygame.time.Clock()
