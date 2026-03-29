@@ -56,7 +56,8 @@ class Controller:
             elif self.game_state == "SETUP" and self.founder:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if self.hovered_tile and self.hovered_tile.element not in ["stone", "metal"]:
-                        self.founder.jump_to(hovered_hex)
+                        if self.founder.jump_to(hovered_hex):
+                            self.audio.play('move')
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_RETURN:
                         if not any(city.current_hex == self.founder.current_hex for city in self.cities):
@@ -66,6 +67,7 @@ class Controller:
                                 self.player_colors[self.current_player],
                                 self.current_player
                             ))
+                            self.audio.play('found_city')
                             self.current_player += 1
                             if self.current_player < self.num_players:
                                 self.founder = Character(get_random_passable_hex(self.grid), self.player_colors[self.current_player])
