@@ -17,3 +17,11 @@ After those are installed, the game can be run with
 ```python
 python3 main.py
 ```
+It also requires an AI server, [ollama](https://ollama.com/), to function. it specifically requires the model `llama3.2`.\
+#### For Linux,
+```bash
+sudo apt get ollama
+ollama pull llama3.2
+ollama serve
+```
+
